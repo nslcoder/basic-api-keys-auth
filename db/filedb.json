@@ -1,5 +1,6 @@
 [
   { "id": 1, "size": 500, "color": "Blue", "isPlastic": true },
   { "id": 2, "size": 100, "color": "Green", "isPlastic": false },
-  { "id": 3, "size": 1000, "color": "Lime", "isPlastic": false }
+  { "id": 3, "size": 1000, "color": "Lime", "isPlastic": false },
+  { "id": 4, "size": 1000, "color": "Silver", "isPlastic": true }
 ]

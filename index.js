@@ -1,4 +1,5 @@
-const { writeFile, readFile, appendFile, write } = require('fs');
+const { writeFile, readFile } = require('fs/promises');
+const { resolve } = require('path');
 const express = require('express');
 const { v4: uuid } = require('uuid');
 
@@ -9,65 +10,61 @@ const port = process.env.PORT || 5000;
 // Middlewares
 app.use(express.json());
 
+// Helper functions
+const getData = async (filepath) => {
+  const data = await readFile(filepath, 'utf-8');
+  return JSON.parse(data);
+};
+
+const writeData = async (filepath, data) => {
+  const jsonData = JSON.stringify(data);
+  writeFile(filepath, jsonData, 'utf-8');
+};
+
+// DB paths
+const bottlesPath = resolve(__dirname + '/db/filedb.json');
+const keysPath = resolve(__dirname + '/db/keysdb.json');
+
 // Get all bottles (Anyone can access it)
-app.get('/', (req, res) => {
-  readFile('filedb.json', 'utf-8', (err, data) => {
-    if (err) return res.send(err);
-    const parsed = JSON.parse(data);
-    res.send(parsed);
-  });
+app.get('/', async (req, res) => {
+  const parsedData = await getData(bottlesPath);
+  res.send(parsedData);
 });
 
 // Generate API key
-app.post('/create', (req, res) => {
+app.post('/keys', async (req, res) => {
   const apiKey = uuid();
 
-  // Store apikeys in keysdb.json
-  readFile('keysdb.json', 'utf-8', (err, data) => {
-    if (err) return res.send(err);
-    const allKeys = JSON.parse(data);
-    allKeys.push(apiKey);
+  // Get all keys and add a new key
+  const allKeys = await getData(keysPath);
+  allKeys.push(apiKey);
 
-    const jsonedKeys = JSON.stringify(allKeys);
+  // Store all keys
+  await writeData(keysPath, allKeys);
 
-    // Save new keys to keysdb.json
-    writeFile('keysdb.json', jsonedKeys, 'utf-8', (err) => {
-      if (err) return res.send(err);
-      console.log('New API Keys generated and stored.');
-    });
-
-    // Send apikeys to the user
-    res.send(`Your API Keys: ${apiKey}`);
-  });
+  // Send API key to the user
+  res.send(`Your API Key: ${apiKey}`);
 });
 
 // Add bottles (Only those with API keys can add)
-app.post('/add/:key', (req, res) => {
+app.post('/bottles/:key', async (req, res) => {
   const { key } = req.params;
+  const allKeys = await getData(keysPath);
 
-  readFile('keysdb.json', 'utf-8', (err, data) => {
-    if (err) return res.send(err);
-    const allKeys = JSON.parse(data);
-    const isAuthenticated = allKeys.includes(key);
+  // Check if the key exists
+  const isAuthenticated = allKeys.includes(key);
 
-    if (isAuthenticated) {
-      const bottle = req.body;
+  // Allow adding if authenticated
+  if (isAuthenticated) {
+    const bottle = req.body;
 
-      readFile('filedb.json', 'utf-8', (err, data) => {
-        if (err) return res.send(err);
-        const allBottles = JSON.parse(data);
-        allBottles.push(bottle);
+    // Add a bottle
+    const allBottles = await getData(bottlesPath);
+    allBottles.push(bottle);
+    await writeData(bottlesPath, allBottles);
+  }
 
-        const jsonedBottles = JSON.stringify(allBottles);
-
-        // Save new bottle to filedb.json
-        writeFile('filedb.json', jsonedBottles, 'utf-8', (err) => {
-          if (err) return res.send(err);
-          res.send('Your bottle is added');
-        });
-      });
-    }
-  });
+  res.send('Bottle is added');
 });
 
 app.listen(port, () => {
